@@ -1,106 +1,111 @@
 /*
 *
 *
-*       FILL IN EACH FUNCTIONAL TEST BELOW COMPLETELY
-*       -----[Keep the tests in the same order!]-----
+*       Complete the API routing below
+*       
 *       
 */
 
-const chaiHttp = require('chai-http');
-const chai = require('chai');
-const assert = chai.assert;
-const server = require('../server');
+'use strict';
+const mongoose = require("mongoose");
+const bookReview = require("../library").bookReview;
 
-chai.use(chaiHttp);
+module.exports = function (app) {
 
-suite('Functional Tests', function() {
-
-  /*
-  * ----[EXAMPLE TEST]----
-  * Each test should completely test the response of the API end-point including response status code!
-  */
-  test('#example Test GET /api/books', function(done){
-     chai.request(server)
-      .get('/api/books')
-      .end(function(err, res){
-        assert.equal(res.status, 200);
-        assert.isArray(res.body, 'response should be an array');
-        assert.property(res.body[0], 'commentcount', 'Books in array should contain commentcount');
-        assert.property(res.body[0], 'title', 'Books in array should contain title');
-        assert.property(res.body[0], '_id', 'Books in array should contain _id');
-        done();
+  app.route('/api/books')
+    .get(async function (req, res){
+      // response will be array of book objects
+      // json res format: [{"_id": bookid, "title": book_title, "commentcount": num_of_comments },...]
+      const thisThing = await bookReview.find();
+      let sorted = thisThing.map((a, b) => {
+        return {comments: a.comments, _id: a._id, title: a.title, commentcount: a.commentcount}
       });
-  });
-  /*
-  * ----[END of EXAMPLE TEST]----
-  */
 
-  suite('Routing tests', function() {
+      res.json(sorted);
+    })
+    
+    .post(function (req, res){
+      // both Book Title and [submit] New Book Title
+      const id = new mongoose.Types.ObjectId();
+      const title = req.body.title;
 
-
-    suite('POST /api/books with title => create book object/expect book object', function() {
-      
-      test('Test POST /api/books with title', function(done) {
-        //done();
+      if(!title){
+        return res.json('missing required field title');
+      }
+      const newBookReview = new bookReview({
+        comments: [],
+        _id: id,
+        title: title, 
+        commentcount: 0,
       });
+
+      newBookReview.save();
+
+      res.json({_id: id, title: title});
+      // maybe insert title and id into said library object, and then fill in blanks later?
+      // response will contain new book object including atleast _id and title
+    })
+    
+    .delete(async function(req, res){
+      // if successful response will be 'complete delete successful'
+      // located at drop down menu when you click on a books title
       
-      test('Test POST /api/books with no title given', function(done) {
-        //done();
-      });
-      
+      let nothre = await bookReview.find().deleteMany()
+      if(nothre.deletedCount > 0){
+        return res.json("complete delete successful");
+      }
     });
 
 
-    suite('GET /api/books => array of books', function(){
+  app.route('/api/books/:id')
+    .get(async function (req, res){
+      let bookid = req.params.id;
+      const keyboard = await bookReview.findById(bookid);
+      if(!keyboard || keyboard == null){
+        return res.json('no book exists')
+      };
+      res.json({_id: keyboard._id, title: keyboard.title, comments: keyboard.comments});
+      //json res format: {"_id": bookid, "title": book_title, "comments": [comment,comment,...]}
+    })
+    
+    .post(async function(req, res){
+      // used with ID of past thing duh
+      const bookid = req.params.id;
+      const comment = req.body.comment;
+      //eventually make if id exists and doesn't exist
+      //push comments into comments array
+      //give a comment count eventually
+
+      const keyboard = await bookReview.findById(bookid);
+
+      if(!keyboard){
+        return res.json("no book exists");
+      };
+
+      if(!comment){
+        return res.json("missing required field comment");
+      };
+
+      keyboard.comments.push(comment)
+      keyboard.commentcount = keyboard.commentcount + 1
+
+      keyboard.save();
+
+      res.json(keyboard);
+      //json res format same as .get
+    })
+    
+    .delete(async function(req, res){
+      // removes entire database of books
+      let bookid = req.params.id;
+      //if successful response will be 'delete successful'
       
-      test('Test GET /api/books',  function(done){
-        //done();
-      });      
-      
+      const keyboard = await bookReview.findByIdAndDelete(bookid);
+      if(!keyboard){
+        return res.json("no book exists");
+      }
+      return res.json("delete successful");
     });
+  
+};
 
-
-    suite('GET /api/books/[id] => book object with [id]', function(){
-      
-      test('Test GET /api/books/[id] with id not in db',  function(done){
-        //done();
-      });
-      
-      test('Test GET /api/books/[id] with valid id in db',  function(done){
-        //done();
-      });
-      
-    });
-
-
-    suite('POST /api/books/[id] => add comment/expect book object with id', function(){
-      
-      test('Test POST /api/books/[id] with comment', function(done){
-        //done();
-      });
-
-      test('Test POST /api/books/[id] without comment field', function(done){
-        //done();
-      });
-
-      test('Test POST /api/books/[id] with comment, id not in db', function(done){
-        //done();
-      });
-      
-    });
-
-    suite('DELETE /api/books/[id] => delete book object id', function() {
-
-      test('Test DELETE /api/books/[id] with valid id in db', function(done){
-        //done();
-      });
-
-      test('Test DELETE /api/books/[id] with  id not in db', function(done){
-        //done();
-      });
-
-    });
-
-  });
-
-});
